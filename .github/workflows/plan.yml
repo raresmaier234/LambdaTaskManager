@@ -1,0 +1,119 @@
+###############################################################################
+# plan.yml — Runs on pull requests to main
+# Shows a Terraform plan as a PR comment so you can review before merging.
+###############################################################################
+
+name: "Terraform Plan"
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "infrastructure/**"
+      - "frontend/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  AWS_REGION: us-east-2
+  TF_WORKING_DIR: infrastructure
+  TF_VAR_FILE: environments/dev/terraform.tfvars
+
+jobs:
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+      # ---- Checkout ----
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ---- Python + Lambda layer deps ----
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install Lambda layer dependencies
+        run: |
+          pip install -r ../backend/lambda_tasks/requirements.txt \
+            -t ../backend/lambda_tasks/layer/python/ \
+            --quiet
+
+      # ---- Node + Frontend build ----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend (placeholder URL for plan)
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: "https://placeholder.execute-api.us-east-2.amazonaws.com"
+        run: npm run build
+
+      # ---- AWS credentials ----
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ---- Terraform ----
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.8"
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -var-file=${{ env.TF_VAR_FILE }} -no-color -out=tfplan
+        continue-on-error: true
+
+      # ---- Post plan as PR comment ----
+      - name: Post Plan to PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        env:
+          PLAN: ${{ steps.plan.outputs.stdout }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Plan 📖
+            \`\`\`
+            ${process.env.PLAN}
+            \`\`\`
+
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      - name: Fail if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

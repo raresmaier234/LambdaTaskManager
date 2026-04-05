@@ -1,0 +1,117 @@
+###############################################################################
+# deploy.yml — Runs on push to main
+# Builds everything, applies Terraform, deploys frontend to S3 + CloudFront.
+###############################################################################
+
+name: "Deploy"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "infrastructure/**"
+      - "frontend/**"
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+  TF_WORKING_DIR: infrastructure
+  TF_VAR_FILE: environments/dev/terraform.tfvars
+
+jobs:
+  deploy:
+    name: Deploy Infrastructure + Frontend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+      # ---- Checkout ----
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ---- Python + Lambda layer deps ----
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install Lambda layer dependencies
+        run: |
+          pip install -r ../backend/lambda_tasks/requirements.txt \
+            -t ../backend/lambda_tasks/layer/python/ \
+            --quiet
+
+      # ---- AWS credentials ----
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ---- Terraform Apply ----
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.8"
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -var-file=${{ env.TF_VAR_FILE }} -auto-approve
+
+      # ---- Extract Terraform outputs ----
+      - name: Get Terraform Outputs
+        id: tf_outputs
+        run: |
+          echo "api_gateway_url=$(terraform output -raw api_gateway_url)" >> $GITHUB_OUTPUT
+          echo "s3_bucket=$(terraform output -raw frontend_s3_bucket)" >> $GITHUB_OUTPUT
+          echo "cloudfront_id=$(terraform output -raw frontend_cloudfront_distribution_id)" >> $GITHUB_OUTPUT
+
+      # ---- Node + Frontend build with real API URL ----
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ steps.tf_outputs.outputs.api_gateway_url }}
+        run: npm run build
+
+      # ---- Deploy frontend to S3 + invalidate CloudFront ----
+      - name: Sync frontend to S3
+        working-directory: frontend
+        run: |
+          aws s3 sync dist/ s3://${{ steps.tf_outputs.outputs.s3_bucket }} \
+            --delete \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.tf_outputs.outputs.cloudfront_id }} \
+            --paths "/*"
+
+      # ---- Summary ----
+      - name: Deployment Summary
+        run: |
+          echo "## ✅ Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| API Gateway | ${{ steps.tf_outputs.outputs.api_gateway_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | https://$(terraform output -raw frontend_url | sed 's|https://||') |" >> $GITHUB_STEP_SUMMARY

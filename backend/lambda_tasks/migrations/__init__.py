@@ -1,0 +1,1 @@
+from .init_tables import run_migrations
