@@ -1,11 +1,22 @@
-# Lambda layer (dependencies)
+# ──────────────────────────────────────────────
+# Lambda Layer — pip dependencies (python/ dir)
+# ──────────────────────────────────────────────
 data "archive_file" "lambda_layer" {
   type        = "zip"
   source_dir  = "${path.module}/../../../backend/lambda_tasks/layer"
   output_path = "${path.module}/../../../lambda_layer.zip"
 }
 
-# Application code only (excludes layer + caches — those go in the Lambda layer)
+resource "aws_lambda_layer_version" "dependencies" {
+  layer_name          = "${var.project_name}_${var.environment}_dependencies"
+  filename            = data.archive_file.lambda_layer.output_path
+  source_code_hash    = data.archive_file.lambda_layer.output_base64sha256
+  compatible_runtimes = [var.lambda_runtime]
+}
+
+# ──────────────────────────────────────────────
+# Lambda Function — application code only
+# ──────────────────────────────────────────────
 data "archive_file" "lambda_package" {
   type        = "zip"
   source_dir  = "${path.module}/../../../backend/lambda_tasks"
@@ -16,14 +27,6 @@ data "archive_file" "lambda_package" {
     "requirements.txt",
     ".DS_Store",
   ]
-}
-
-
-resource "aws_lambda_layer_version" "dependencies" {
-  layer_name          = "${var.project_name}_${var.environment}_dependencies"
-  filename            = data.archive_file.lambda_layer.output_path
-  source_code_hash    = data.archive_file.lambda_layer.output_base64sha256
-  compatible_runtimes = [var.lambda_runtime]
 }
 
 resource "aws_lambda_function" "lambda_function" {

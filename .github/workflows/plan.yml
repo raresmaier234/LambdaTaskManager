@@ -12,6 +12,7 @@ on:
       - "backend/**"
       - "infrastructure/**"
       - "frontend/**"
+      - ".github/**"
 
 permissions:
   contents: read

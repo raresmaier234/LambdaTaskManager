@@ -1,6 +1,7 @@
 module "iam" {
   source = "./modules/iam"
 
+  region = var.region
   project_name = var.project_name
   environment  = var.environment
 }
