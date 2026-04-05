@@ -84,12 +84,14 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci
+        run: |
+          rm -rf node_modules
+          npm ci
 
-      - name: Build frontend
+      - name: Build frontend (placeholder URL for plan)
         working-directory: frontend
         env:
-          VITE_API_BASE_URL: ${{ steps.tf_outputs.outputs.api_gateway_url }}
+          VITE_API_BASE_URL: "https://placeholder.execute-api.us-east-2.amazonaws.com"
         run: npm run build
 
       # ---- Deploy frontend to S3 + invalidate CloudFront ----
