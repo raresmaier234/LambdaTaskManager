@@ -43,10 +43,18 @@ jobs:
           python-version: "3.9"
 
       - name: Install Lambda layer dependencies
+        working-directory: .
         run: |
-          pip install -r ../backend/lambda_tasks/requirements.txt \
-            -t ../backend/lambda_tasks/layer/python/ \
-            --quiet
+          rm -rf backend/lambda_tasks/layer/python
+          mkdir -p backend/lambda_tasks/layer/python
+          pip install \
+            -r backend/lambda_tasks/requirements.txt \
+            -t backend/lambda_tasks/layer/python \
+            --upgrade \
+            --platform manylinux2014_x86_64 \
+            --implementation cp \
+            --python-version 3.9 \
+            --only-binary=:all:
 
       # ---- Node + Frontend build ----
       - name: Setup Node.js
@@ -56,16 +64,15 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run:
+        run: |
+          rm -rf node_modules
+          npm ci
 
       - name: Build frontend (placeholder URL for plan)
         working-directory: frontend
         env:
           VITE_API_BASE_URL: "https://placeholder.execute-api.us-east-2.amazonaws.com"
-        run: |
-          rm -rf node_modules
-          npm ci
-          npm run build
+        run: npm run build
 
       # ---- AWS credentials ----
       - name: Configure AWS credentials

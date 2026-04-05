@@ -42,10 +42,18 @@ jobs:
           python-version: '3.9'
 
       - name: Install Lambda layer dependencies
+        working-directory: .
         run: |
           rm -rf backend/lambda_tasks/layer/python
           mkdir -p backend/lambda_tasks/layer/python
-          pip install -r backend/requirements.txt -t backend/lambda_tasks/layer/python --upgrade --platform manylinux2014_x86_64 --only-binary=:all:
+          pip install \
+            -r backend/lambda_tasks/requirements.txt \
+            -t backend/lambda_tasks/layer/python \
+            --upgrade \
+            --platform manylinux2014_x86_64 \
+            --implementation cp \
+            --python-version 3.9 \
+            --only-binary=:all:
       
 
       # ---- AWS credentials ----
