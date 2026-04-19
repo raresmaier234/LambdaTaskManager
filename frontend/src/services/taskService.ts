@@ -14,9 +14,10 @@ let _service: ITaskService | null = null
 export async function taskService(): Promise<ITaskService> {
   if (_service) return _service
 
-  const mod = await import('./taskService.api')
+  const mod = await import('./taskService.api.ts')
+  console.log(mod)
   _service = new mod.ApiTaskService()
-
+  console.log(_service)
   return _service
 }
 

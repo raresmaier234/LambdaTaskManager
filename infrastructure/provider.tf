@@ -7,14 +7,6 @@ terraform {
       version = "~> 4.0"
     }
   }
-
-  backend "s3" {
-    bucket         = "lambda-task-cloud-tf-state-557187998171"
-    key            = "lambda-task-cloud/terraform.tfstate"
-    region         = "us-east-2"
-    dynamodb_table = "terraform-lock"
-    encrypt        = true
-  }
 }
 
 provider "aws" {

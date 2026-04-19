@@ -5,7 +5,7 @@ import type { ApiResponse } from '../types/api'
 
 export class ApiTaskService implements ITaskService {
   async list(): Promise<Task[]> {
-    const res = await apiClient<ApiResponse<Task[]>>('/')
+    const res = await apiClient<ApiResponse<Task[]>>('/task')
     return res.data
   }
 

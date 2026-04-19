@@ -22,3 +22,4 @@ variable "lambda_runtime" {
   description = "Lambda runtime"
   type        = string
 }
+

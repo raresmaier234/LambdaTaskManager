@@ -1,6 +1,5 @@
-import datetime
+from datetime import datetime
 import enum
-from dataclasses import dataclass
 from typing import Optional, List
 
 from pydantic import BaseModel
@@ -32,6 +31,7 @@ class TaskCreate(BaseModel):
 
 
 class TaskResponse(BaseModel):
+    id: str
     title: str
     description: str
     status: TaskStatus

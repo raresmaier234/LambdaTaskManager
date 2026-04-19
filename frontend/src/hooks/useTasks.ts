@@ -9,6 +9,7 @@ export function useTasks() {
   const [service, setService] = useState<ITaskService | null>(null)
 
   useEffect(() => {
+    console.log(taskService())
     taskService().then(setService)
   }, [])
 
@@ -28,6 +29,7 @@ export function useTasks() {
 
   useEffect(() => {
     fetchTasks()
+    console.log(tasks)
   }, [fetchTasks])
 
   const addTask = useCallback(async (dto: CreateTaskDTO) => {

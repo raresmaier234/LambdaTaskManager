@@ -1,6 +1,4 @@
-from pynamodb.attributes import UnicodeAttribute, UTCDateTimeAttribute
-
-from layer.python.pynamodb.attributes import JSONAttribute, ListAttribute
+from pynamodb.attributes import UnicodeAttribute, UTCDateTimeAttribute, JSONAttribute, ListAttribute
 from models.base import BaseModel
 
 

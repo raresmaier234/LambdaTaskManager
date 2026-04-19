@@ -76,17 +76,26 @@ jobs:
 
       - name: Force unlock Terraform state if locked
         run: |
-          LOCK_ID=$(aws dynamodb get-item \
+          # Check if lock exists in DynamoDB
+          LOCK_EXISTS=$(aws dynamodb get-item \
             --table-name lambda-task-cloud-tf-state-lock \
             --key '{"LockID":{"S":"lambda-task-cloud-tf-state-557187998171/lambda-task-cloud/terraform.tfstate"}}' \
-            --query 'Item.Info.S' \
-            --output text 2>/dev/null | jq -r '.ID' 2>/dev/null || echo "")
+            --query 'Item.LockID.S' \
+            --output text 2>/dev/null || echo "")
           
-          if [ ! -z "$LOCK_ID" ] && [ "$LOCK_ID" != "null" ]; then
-            echo "Found lock ID: $LOCK_ID. Attempting to unlock..."
-            terraform force-unlock -force "$LOCK_ID" || echo "Failed to unlock, will try to proceed"
+          if [ ! -z "$LOCK_EXISTS" ] && [ "$LOCK_EXISTS" != "None" ]; then
+            # Extract the lock ID from the Info field
+            LOCK_ID=$(aws dynamodb get-item \
+              --table-name lambda-task-cloud-tf-state-lock \
+              --key '{"LockID":{"S":"lambda-task-cloud-tf-state-557187998171/lambda-task-cloud/terraform.tfstate"}}' \
+              --output json 2>/dev/null | jq -r '.Item.Info.S' | jq -r '.ID' || echo "")
+            
+            if [ ! -z "$LOCK_ID" ] && [ "$LOCK_ID" != "null" ]; then
+              echo "Found lock ID: $LOCK_ID. Attempting to unlock..."
+              terraform force-unlock -force "$LOCK_ID" || echo "Failed to unlock, will try to proceed"
+            fi
           else
-            echo "No active lock found or unable to retrieve lock ID"
+            echo "No active lock found"
           fi
         continue-on-error: true
       - name: Delete existing CloudFront OAC if present
@@ -160,15 +169,22 @@ jobs:
       - name: Clean up state lock on failure
         if: failure() || cancelled()
         run: |
-          LOCK_ID=$(aws dynamodb get-item \
+          LOCK_EXISTS=$(aws dynamodb get-item \
             --table-name lambda-task-cloud-tf-state-lock \
             --key '{"LockID":{"S":"lambda-task-cloud-tf-state-557187998171/lambda-task-cloud/terraform.tfstate"}}' \
-            --query 'Item.Info.S' \
-            --output text 2>/dev/null | jq -r '.ID' 2>/dev/null || echo "")
+            --query 'Item.LockID.S' \
+            --output text 2>/dev/null || echo "")
           
-          if [ ! -z "$LOCK_ID" ] && [ "$LOCK_ID" != "null" ]; then
-            echo "Releasing lock: $LOCK_ID"
-            terraform force-unlock -force "$LOCK_ID" || true
+          if [ ! -z "$LOCK_EXISTS" ] && [ "$LOCK_EXISTS" != "None" ]; then
+            LOCK_ID=$(aws dynamodb get-item \
+              --table-name lambda-task-cloud-tf-state-lock \
+              --key '{"LockID":{"S":"lambda-task-cloud-tf-state-557187998171/lambda-task-cloud/terraform.tfstate"}}' \
+              --output json 2>/dev/null | jq -r '.Item.Info.S' | jq -r '.ID' || echo "")
+            
+            if [ ! -z "$LOCK_ID" ] && [ "$LOCK_ID" != "null" ]; then
+              echo "Releasing lock: $LOCK_ID"
+              terraform force-unlock -force "$LOCK_ID" || true
+            fi
           fi
         continue-on-error: true
 

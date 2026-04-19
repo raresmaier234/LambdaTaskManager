@@ -1,10 +1,16 @@
-# ──────────────────────────────────────────────
-# Lambda Layer — pip dependencies (python/ dir)
-# ──────────────────────────────────────────────
+# Application code only (excludes the layer directory)
+data "archive_file" "lambda_code" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../../backend/lambda_tasks"
+  excludes    = []
+  output_path = "${path.module}/lambda_package.zip"
+}
+
+# Dependencies layer (python/ directory required by Lambda layer convention)
 data "archive_file" "lambda_layer" {
   type        = "zip"
   source_dir  = "${path.module}/../../../backend/lambda_tasks/layer"
-  output_path = "${path.module}/../../../lambda_layer.zip"
+  output_path = "${path.module}/lambda_layer.zip"
 }
 
 resource "aws_lambda_layer_version" "dependencies" {
@@ -12,21 +18,6 @@ resource "aws_lambda_layer_version" "dependencies" {
   filename            = data.archive_file.lambda_layer.output_path
   source_code_hash    = data.archive_file.lambda_layer.output_base64sha256
   compatible_runtimes = [var.lambda_runtime]
-}
-
-# ──────────────────────────────────────────────
-# Lambda Function — application code only
-# ──────────────────────────────────────────────
-data "archive_file" "lambda_package" {
-  type        = "zip"
-  source_dir  = "${path.module}/../../../backend/lambda_tasks"
-  output_path = "${path.module}/../../../lambda_package.zip"
-  excludes = [
-    "layer",
-    "__pycache__",
-    "requirements.txt",
-    ".DS_Store",
-  ]
 }
 
 resource "aws_lambda_function" "lambda_function" {
@@ -37,8 +28,8 @@ resource "aws_lambda_function" "lambda_function" {
   timeout       = 30
   memory_size   = 512
 
-  filename         = data.archive_file.lambda_package.output_path
-  source_code_hash = data.archive_file.lambda_package.output_base64sha256
+  filename         = data.archive_file.lambda_code.output_path
+  source_code_hash = data.archive_file.lambda_code.output_base64sha256
 
   layers = [aws_lambda_layer_version.dependencies.arn]
 
@@ -71,10 +62,10 @@ resource "aws_apigatewayv2_api" "lambda_api" {
 
 # API Gateway Integration with Lambda
 resource "aws_apigatewayv2_integration" "lambda_integration" {
-  api_id           = aws_apigatewayv2_api.lambda_api.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = aws_lambda_function.lambda_function.invoke_arn
-  integration_method = "POST"
+  api_id                 = aws_apigatewayv2_api.lambda_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.lambda_function.invoke_arn
+  integration_method     = "POST"
   payload_format_version = "2.0"
 }
 
