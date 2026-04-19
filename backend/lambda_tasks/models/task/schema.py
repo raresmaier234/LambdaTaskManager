@@ -1,5 +1,7 @@
+import datetime
 import enum
 from dataclasses import dataclass
+from typing import Optional, List
 
 from pydantic import BaseModel
 
@@ -21,12 +23,19 @@ class TaskFile(BaseModel):
     url: str
 
 
-@dataclass
-class TaskCreate:
+class TaskCreate(BaseModel):
     title: str
     description: str
     status: TaskStatus
     priority: TaskPriority
-    files: TaskFile = None
-    createdAt: str = None
-    updatedAt: str = None
+    files: Optional[List[TaskFile]] = None
+
+
+class TaskResponse(BaseModel):
+    title: str
+    description: str
+    status: TaskStatus
+    priority: TaskPriority
+    files: Optional[List[TaskFile]] = None
+    createdAt: datetime
+    updatedAt: datetime

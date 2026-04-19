@@ -16,7 +16,7 @@ table = dynamodb.Table("Tasks")
 @router.post("")
 def create_task(task: TaskCreate):
     """Create a new task"""
-    table.put_item(Item=asdict(task))
+    table.put_item(Item=task.model_dump())
     return {"message": "Task saved", "task": task}
 
 @router.get("")
