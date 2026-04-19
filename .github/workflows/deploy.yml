@@ -74,15 +74,18 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      - name: Import existing CloudFront OAC
-        working-directory: ./infrastructure/environments/dev
+      - name: Delete existing CloudFront OAC if present
         run: |
           OAC_ID=$(aws cloudfront list-origin-access-controls \
-            --query 'OriginAccessControlList.Items[?Name==`lambda-task-cloud-dev-oac`].Id' \
-            --output text)
+          --query 'OriginAccessControlList.Items[?Name==`lambda-task-cloud-dev-oac`].Id' \
+          --output text 2>/dev/null || echo "")
 
           if [ ! -z "$OAC_ID" ]; then
-            terraform import module.frontend.aws_cloudfront_origin_access_control.frontend $OAC_ID || true
+            echo "Deleting existing OAC: $OAC_ID"
+            ETAG=$(aws cloudfront get-origin-access-control --id "$OAC_ID" \
+              --query 'ETag' --output text)
+            aws cloudfront delete-origin-access-control \
+              --id "$OAC_ID" --if-match "$ETAG" || echo "Could not delete OAC"
           fi
 
       - name: Terraform Apply
