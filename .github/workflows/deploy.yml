@@ -56,17 +56,6 @@ jobs:
             --python-version 3.9 \
             --only-binary=:all:
 
-      - name: Import existing CloudFront OAC
-        working-directory: ./infrastructure/environments/dev
-        run: |
-          OAC_ID=$(aws cloudfront list-origin-access-controls \
-            --query 'OriginAccessControlList.Items[?Name==`lambda-task-cloud-dev-oac`].Id' \
-            --output text)
-
-          if [ ! -z "$OAC_ID" ]; then
-            terraform import module.frontend.aws_cloudfront_origin_access_control.frontend $OAC_ID || true
-          fi
-
       # ---- AWS credentials ----
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -84,6 +73,17 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
+
+      - name: Import existing CloudFront OAC
+        working-directory: ./infrastructure/environments/dev
+        run: |
+          OAC_ID=$(aws cloudfront list-origin-access-controls \
+            --query 'OriginAccessControlList.Items[?Name==`lambda-task-cloud-dev-oac`].Id' \
+            --output text)
+
+          if [ ! -z "$OAC_ID" ]; then
+            terraform import module.frontend.aws_cloudfront_origin_access_control.frontend $OAC_ID || true
+          fi
 
       - name: Terraform Apply
         run: terraform apply -var-file=${{ env.TF_VAR_FILE }} -auto-approve
