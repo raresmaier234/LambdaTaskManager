@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 from fastapi import APIRouter
 import boto3
 import uuid
@@ -14,12 +16,8 @@ table = dynamodb.Table("Tasks")
 @router.post("")
 def create_task(task: TaskCreate):
     """Create a new task"""
-    item = {
-        "taskId": str(uuid.uuid4()),
-        "title": task.title
-    }
-    table.put_item(Item=item)
-    return {"message": "Task saved", "task": item}
+    table.put_item(Item=asdict(task))
+    return {"message": "Task saved", "task": task}
 
 @router.get("")
 def get_tasks():

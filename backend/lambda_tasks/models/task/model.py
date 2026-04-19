@@ -1,4 +1,6 @@
-from pynamodb.attributes import UnicodeAttribute
+from pynamodb.attributes import UnicodeAttribute, UTCDateTimeAttribute
+
+from layer.python.pynamodb.attributes import JSONAttribute, ListAttribute
 from models.base import BaseModel
 
 
@@ -9,5 +11,11 @@ class TaskModel(BaseModel):
     class Meta:
         table_name = 'Tasks'
 
-    taskId = UnicodeAttribute(hash_key=True)
+    id = UnicodeAttribute(hash_key=True)
     title = UnicodeAttribute()
+    description = UnicodeAttribute(null=True)
+    status = UnicodeAttribute()
+    priority = UnicodeAttribute()
+    files = ListAttribute(of=JSONAttribute, null=True)
+    createdAt = UTCDateTimeAttribute()
+    updatedAt = UTCDateTimeAttribute()
