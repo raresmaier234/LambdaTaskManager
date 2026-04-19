@@ -98,19 +98,21 @@ jobs:
             echo "No active lock found"
           fi
         continue-on-error: true
-      - name: Delete existing CloudFront OAC if present
+
+      - name: Import existing CloudFront OAC if present
         run: |
           OAC_ID=$(aws cloudfront list-origin-access-controls \
-          --query 'OriginAccessControlList.Items[?Name==`lambda-task-cloud-dev-oac`].Id' \
-          --output text 2>/dev/null || echo "")
+            --query 'OriginAccessControlList.Items[?Name==`lambda-task-cloud-dev-oac`].Id' \
+            --output text 2>/dev/null || echo "")
 
-          if [ ! -z "$OAC_ID" ]; then
-            echo "Deleting existing OAC: $OAC_ID"
-            ETAG=$(aws cloudfront get-origin-access-control --id "$OAC_ID" \
-              --query 'ETag' --output text)
-            aws cloudfront delete-origin-access-control \
-              --id "$OAC_ID" --if-match "$ETAG" || echo "Could not delete OAC"
+          if [ ! -z "$OAC_ID" ] && [ "$OAC_ID" != "None" ]; then
+            echo "Found existing OAC: $OAC_ID. Importing into Terraform state..."
+            terraform import -var-file=${{ env.TF_VAR_FILE }} \
+              module.frontend.aws_cloudfront_origin_access_control.frontend "$OAC_ID" || echo "Import failed or already in state"
+          else
+            echo "No existing OAC found"
           fi
+        continue-on-error: true
 
       - name: Terraform Apply
         run: terraform apply -var-file=${{ env.TF_VAR_FILE }} -auto-approve
