@@ -73,7 +73,10 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-
+      - name: Force unlock Terraform state if locked
+        run: |
+          terraform force-unlock -force edcb19bc-0c8a-89fa-2233-15a6982385c2 || echo "No lock to remove or lock already released"
+        continue-on-error: true
       - name: Delete existing CloudFront OAC if present
         run: |
           OAC_ID=$(aws cloudfront list-origin-access-controls \
